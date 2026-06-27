@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام رصد الملاحظات الميدانية</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+  :root {
+    --green-dark: #1a4731; --green-mid: #2d6a4f; --green-accent: #40916c;
+    --green-light: #74c69d; --gold: #d4a017; --red-danger: #c1121f;
+    --orange-high: #e36414; --yellow-med: #f4a261; --blue-low: #457b9d;
+    --gray-soft: #e9ecef; --gray-mid: #adb5bd; --text-dark: #1b2030;
+    --shadow: 0 4px 24px rgba(26,71,49,0.13);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Tajawal', sans-serif; background: #f0f4f1; color: var(--text-dark); min-height: 100vh; }
+
+  header { background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-mid) 100%); color: white; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; height: 62px; box-shadow: 0 2px 12px rgba(0,0,0,0.25); position: sticky; top: 0; z-index: 100; }
+  header h1 { font-size: 1.1rem; font-weight: 800; }
+  header .badge { background: var(--gold); color: var(--green-dark); font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+
+  .nav-tabs { display: flex; background: white; border-bottom: 2px solid var(--gray-soft); overflow-x: auto; scrollbar-width: none; }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { flex: 1; min-width: 90px; padding: 13px 8px; border: none; background: none; font-family: 'Tajawal', sans-serif; font-size: 0.83rem; font-weight: 600; color: var(--gray-mid); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .tab-btn.active { color: var(--green-mid); border-bottom-color: var(--green-mid); }
+
+  .panel { display: none; padding: 16px; max-width: 720px; margin: 0 auto; }
+  .panel.active { display: block; }
+
+  .card { background: white; border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card-title { font-size: 0.97rem; font-weight: 800; color: var(--green-dark); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+  label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--green-dark); margin-bottom: 5px; }
+  input[type=text], input[type=email], textarea, select { width: 100%; border: 1.5px solid #d0ddd6; border-radius: 9px; padding: 10px 13px; font-family: 'Tajawal', sans-serif; font-size: 0.92rem; background: #f8fbf9; color: var(--text-dark); transition: border 0.2s; margin-bottom: 13px; outline: none; }
+  input:focus, textarea:focus, select:focus { border-color: var(--green-accent); background: white; }
+  textarea { resize: vertical; min-height: 85px; }
+
+  .severity-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 13px; }
+  .sev-btn { padding: 10px 4px; border-radius: 10px; border: 2px solid transparent; text-align: center; cursor: pointer; font-family: 'Tajawal', sans-serif; font-size: 0.75rem; font-weight: 700; transition: all 0.2s; background: var(--gray-soft); color: #555; }
+  .sev-btn .sev-icon { font-size: 1.3rem; display: block; margin-bottom: 3px; }
+  .sev-btn.low    { border-color: var(--blue-low);    background: #e8f1f7; color: var(--blue-low); }
+  .sev-btn.med    { border-color: var(--yellow-med);  background: #fef3e8; color: #c87137; }
+  .sev-btn.high   { border-color: var(--orange-high); background: #fdeee3; color: var(--orange-high); }
+  .sev-btn.danger { border-color: var(--red-danger);  background: #fdecea; color: var(--red-danger); }
+  .sev-btn.selected { transform: scale(1.06); box-shadow: 0 0 0 3px rgba(0,0,0,0.15); }
+
+  .img-upload-area { border: 2px dashed #aac8b7; border-radius: 12px; padding: 18px; text-align: center; cursor: pointer; background: #f5faf7; margin-bottom: 13px; transition: border-color 0.2s; }
+  .img-upload-area:hover { border-color: var(--green-accent); }
+  .img-upload-area .up-icon { font-size: 2rem; }
+  .img-upload-area p { font-size: 0.8rem; color: var(--gray-mid); margin-top: 5px; }
+  #photoInput { display: none; }
+  .preview-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 13px; }
+  .preview-strip .photo-wrap { position: relative; }
+  .preview-strip img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 2px solid var(--green-light); display: block; }
+  .del-photo { position: absolute; top: -5px; left: -5px; background: var(--red-danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 0.65rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+
+  .loc-box { display: flex; align-items: center; gap: 10px; background: #eef6f1; border-radius: 10px; padding: 11px 14px; margin-bottom: 13px; border: 1.5px solid #c4dfd0; }
+  .loc-box .loc-text { flex: 1; font-size: 0.82rem; color: #555; }
+  .loc-box .loc-text strong { color: var(--green-dark); display: block; font-size: 0.87rem; }
+  #locBtn { background: var(--green-accent); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Tajawal', sans-serif; font-size: 0.82rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+  .map-placeholder { width: 100%; height: 130px; background: linear-gradient(135deg, #d4edda, #b7d5c0); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--green-dark); font-size: 0.85rem; font-weight: 700; gap: 6px; margin-bottom: 13px; }
+  .map-pin { font-size: 2.2rem; animation: bounce 1.5s infinite; }
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+  /* Email recipient rows */
+  .email-section { margin-bottom: 13px; }
+  .email-row { margin-bottom: 14px; }
+  .email-row-label { font-size: 0.84rem; font-weight: 800; color: var(--green-dark); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .email-row input[type=email] { margin-bottom: 0; }
+
+  .btn-primary { width: 100%; background: linear-gradient(135deg, var(--green-mid), var(--green-dark)); color: white; border: none; border-radius: 12px; padding: 15px; font-family: 'Tajawal', sans-serif; font-size: 1rem; font-weight: 800; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary { background: var(--gray-soft); color: var(--text-dark); border: none; border-radius: 10px; padding: 9px 16px; font-family: 'Tajawal', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+
+  .sending-overlay { display: none; position: fixed; inset: 0; background: rgba(26,71,49,0.88); z-index: 200; align-items: center; justify-content: center; flex-direction: column; color: white; gap: 18px; }
+  .sending-overlay.active { display: flex; }
+  .spinner { width: 52px; height: 52px; border: 5px solid rgba(255,255,255,0.25); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .sending-overlay p { font-size: 1.05rem; font-weight: 700; text-align: center; padding: 0 20px; }
+  .check-icon { font-size: 3.5rem; display: none; }
+
+  .obs-card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 11px; box-shadow: var(--shadow); border-right: 5px solid var(--green-mid); }
+  .obs-card.low-sev    { border-right-color: var(--blue-low); }
+  .obs-card.med-sev    { border-right-color: var(--yellow-med); }
+  .obs-card.high-sev   { border-right-color: var(--orange-high); }
+  .obs-card.danger-sev { border-right-color: var(--red-danger); }
+  .obs-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 7px; }
+  .obs-id { font-size: 0.73rem; color: var(--gray-mid); font-weight: 600; }
+  .sev-badge { font-size: 0.71rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .sev-badge.low    { background: #e8f1f7; color: var(--blue-low); }
+  .sev-badge.med    { background: #fef3e8; color: #c87137; }
+  .sev-badge.high   { background: #fdeee3; color: var(--orange-high); }
+  .sev-badge.danger { background: #fdecea; color: var(--red-danger); }
+  .obs-note { font-size: 0.87rem; color: #444; margin-bottom: 8px; line-height: 1.5; }
+  .obs-meta { font-size: 0.74rem; color: var(--gray-mid); display: flex; gap: 10px; flex-wrap: wrap; }
+  .obs-imgs { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .obs-imgs img { width: 54px; height: 54px; object-fit: cover; border-radius: 6px; }
+  .obs-status { display: inline-flex; align-items: center; gap: 4px; font-size: 0.71rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; margin-top: 8px; }
+  .obs-status.sent    { background: #e8f5e9; color: #2e7d32; }
+  .obs-status.pending { background: #fff8e1; color: #f57f17; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 14px; }
+  .stat-card { background: white; border-radius: 12px; padding: 16px; text-align: center; box-shadow: var(--shadow); }
+  .stat-num { font-size: 2rem; font-weight: 800; color: var(--green-dark); }
+  .stat-label { font-size: 0.77rem; color: var(--gray-mid); margin-top: 3px; }
+  .sev-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .sev-bar-label { font-size: 0.77rem; width: 68px; font-weight: 600; }
+  .sev-bar-track { flex: 1; height: 10px; background: var(--gray-soft); border-radius: 5px; overflow: hidden; }
+  .sev-bar-fill { height: 100%; border-radius: 5px; transition: width 0.6s; }
+  .sev-bar-count { font-size: 0.77rem; font-weight: 700; width: 18px; }
+
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--gray-soft); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row label { margin-bottom: 0; font-size: 0.88rem; }
+  .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 24px; transition: 0.3s; }
+  .toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; right: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+  .toggle input:checked + .toggle-slider { background: var(--green-accent); }
+  .toggle input:checked + .toggle-slider:before { right: auto; left: 3px; }
+
+  #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--green-dark); color: white; padding: 12px 26px; border-radius: 30px; font-weight: 700; font-size: 0.88rem; z-index: 999; transition: transform 0.3s; box-shadow: 0 4px 20px rgba(0,0,0,0.3); white-space: nowrap; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--gray-mid); }
+  .empty-state .e-icon { font-size: 3rem; margin-bottom: 10px; }
+
+  .ref-box { background: linear-gradient(135deg,#eef6f1,#d4edda); border: 1.5px solid #c4dfd0; border-radius: 10px; padding: 12px 15px; margin-bottom: 13px; }
+  .ref-box label { margin-bottom: 6px; }
+  .ref-box input { margin-bottom: 0; background: white; }
+
+  .divider { height: 1px; background: var(--gray-soft); margin: 8px 0 16px; }
+  .section-note { font-size: 0.78rem; color: var(--gray-mid); margin-bottom: 14px; line-height: 1.6; background: #f8fbf9; border-radius: 8px; padding: 9px 12px; border-right: 3px solid var(--green-light); }
+</style>
+</head>
+<body>
+
+<div class="sending-overlay" id="sendingOverlay">
+  <div class="spinner" id="spinnerEl"></div>
+  <div class="check-icon" id="checkEl">✅</div>
+  <p id="sendingMsg">جارٍ إرسال الملاحظة...</p>
+</div>
+
+<header>
+  <h1>📋 رصد الملاحظات الميدانية</h1>
+  <span class="badge" id="liveTime"></span>
+</header>
+
+<div class="nav-tabs">
+  <button class="tab-btn active" id="btn-new" onclick="showTab('new')">➕ جديدة</button>
+  <button class="tab-btn" id="btn-list" onclick="showTab('list')">📋 السجل</button>
+  <button class="tab-btn" id="btn-stats" onclick="showTab('stats')">📊 إحصائيات</button>
+  <button class="tab-btn" id="btn-settings" onclick="showTab('settings')">⚙️ إعدادات</button>
+</div>
+
+<!-- ═══ NEW OBSERVATION ═══ -->
+<div id="tab-new" class="panel active">
+
+  <!-- Visit Info -->
+  <div class="card">
+    <div class="card-title">🏢 بيانات الزيارة</div>
+
+    <!-- Ref Number - Manual -->
+    <div class="ref-box">
+      <label>🔢 الرقم المرجعي للزيارة</label>
+      <input type="text" id="refNum" placeholder="أدخل الرقم المرجعي يدوياً">
+    </div>
+
+    <label>اسم الموقع / المنشأة</label>
+    <input type="text" id="siteName" placeholder="مثال: مصنع سامكو – الرياض">
+
+    <label>نوع الزيارة</label>
+    <select id="visitType">
+      <option value="">-- اختر نوع الزيارة --</option>
+      <option>متابعة امتثال</option>
+      <option>بلاغ</option>
+      <option>برنامج الجودة</option>
+      <option>تأهيل</option>
+    </select>
+  </div>
+
+  <!-- Location -->
+  <div class="card">
+    <div class="card-title">📍 الموقع الجغرافي</div>
+    <div class="map-placeholder" id="mapPlaceholder">
+      <div class="map-pin">📍</div>
+      <span id="mapLabel">اضغط لتحديد الموقع</span>
+    </div>
+    <div class="loc-box">
+      <div class="loc-text">
+        <strong id="coordDisplay">لم يتم التحديد بعد</strong>
+        <span id="addressDisplay">اضغط الزر لاستخدام GPS</span>
+      </div>
+      <button id="locBtn" onclick="getLocation()">📡 تحديد</button>
+    </div>
+    <label>وصف الموقع التفصيلي (اختياري)</label>
+    <input type="text" id="locationDesc" placeholder="مثال: الدور الثاني – قسم الإنتاج">
+  </div>
+
+  <!-- Photos -->
+  <div class="card">
+    <div class="card-title">📷 صور الملاحظة</div>
+    <div class="img-upload-area" onclick="document.getElementById('photoInput').click()">
+      <div class="up-icon">📸</div>
+      <p>اضغط لالتقاط صورة أو رفع من المعرض</p>
+      <p style="font-size:0.72rem;margin-top:3px;">يمكن إضافة أكثر من صورة</p>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" multiple onchange="handlePhotos(event)">
+    <div class="preview-strip" id="photoPreview"></div>
+  </div>
+
+  <!-- Observation Details -->
+  <div class="card">
+    <div class="card-title">📝 تفاصيل الملاحظة</div>
+    <label>نوع الملاحظة</label>
+    <select id="obsType">
+      <option value="">-- اختر نوع الملاحظة --</option>
+      <option>طفايات الحريق</option>
+      <option>انسكابات بترولية</option>
+      <option>ملاحظات مرافق المحطة</option>
+      <option>أسلاك مكشوفة</option>
+      <option>تصرفات غير آمنة</option>
+    </select>
+    <label>وصف الملاحظة التفصيلي</label>
+    <textarea id="obsNote" placeholder="اكتب وصفاً دقيقاً للملاحظة، المكان، والوضع الراهن..."></textarea>
+    <label>تصنيف درجة الخطورة</label>
+    <div class="severity-grid">
+      <div class="sev-btn danger" onclick="selectSeverity('danger',this)"><span class="sev-icon">🔴</span>خطر فوري</div>
+      <div class="sev-btn high"   onclick="selectSeverity('high',this)"><span class="sev-icon">🟧</span>عالية</div>
+      <div class="sev-btn med"    onclick="selectSeverity('med',this)"><span class="sev-icon">🟨</span>متوسطة</div>
+      <div class="sev-btn low"    onclick="selectSeverity('low',this)"><span class="sev-icon">🟦</span>منخفضة</div>
+    </div>
+    <label>الإجراء التصحيحي المقترح</label>
+    <textarea id="corrective" placeholder="ما هو الإجراء المقترح لمعالجة هذه الملاحظة؟" style="min-height:65px;"></textarea>
+  </div>
+
+  <!-- Recipients - inline input -->
+  <div class="card">
+    <div class="card-title">📤 إرسال فوري إلى</div>
+    <p class="section-note">أدخل إيميلات المستلمين — تُحفظ تلقائياً للمرة القادمة</p>
+
+    <div class="email-row">
+      <div class="email-row-label">👔 مدير المنطقة الشمالية</div>
+      <input type="email" id="email-mgr" placeholder="manager@moenergy.gov.sa" oninput="saveEmail('mgr',this.value)">
+    </div>
+
+    <div class="email-row">
+      <div class="email-row-label">👷 المشرف</div>
+      <input type="email" id="email-sup" placeholder="supervisor@moenergy.gov.sa" oninput="saveEmail('sup',this.value)">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="email-row">
+      <div class="email-row-label">👁️ نسخة للمراقب</div>
+      <input type="email" id="email-mon" placeholder="monitor@moenergy.gov.sa" oninput="saveEmail('mon',this.value)">
+    </div>
+
+    <div class="email-row">
+      <div class="email-row-label">🦺 مسؤول السلامة</div>
+      <input type="email" id="email-safe" placeholder="safety@moenergy.gov.sa" oninput="saveEmail('safe',this.value)">
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="submitObservation()">📡 رفع الملاحظة الآن</button>
+  <div style="height:28px"></div>
+</div>
+
+<!-- ═══ LIST ═══ -->
+<div id="tab-list" class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <span style="font-weight:800;color:var(--green-dark);font-size:1rem;">سجل الملاحظات</span>
+    <select id="filterSev" onchange="renderList()" style="width:auto;margin:0;padding:7px 10px;font-size:0.8rem;">
+      <option value="">كل الحالات</option>
+      <option value="low">منخفضة</option>
+      <option value="med">متوسطة</option>
+      <option value="high">عالية</option>
+      <option value="danger">خطر فوري</option>
+    </select>
+  </div>
+  <div id="obsList"></div>
+</div>
+
+<!-- ═══ STATS ═══ -->
+<div id="tab-stats" class="panel">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num" id="st-total">0</div><div class="stat-label">إجمالي الملاحظات</div></div>
+    <div class="stat-card"><div class="stat-num" id="st-today" style="color:var(--green-accent)">0</div><div class="stat-label">ملاحظات اليوم</div></div>
+    <div class="stat-card"><div class="stat-num" id="st-danger" style="color:var(--red-danger)">0</div><div class="stat-label">خطر فوري</div></div>
+    <div class="stat-card"><div class="stat-num" id="st-sent" style="color:var(--blue-low)">0</div><div class="stat-label">تم الإرسال</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📊 توزيع درجات الخطورة</div>
+    <div id="sevBars"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🏢 أكثر المواقع ملاحظات</div>
+    <div id="topSites"></div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div id="tab-settings" class="panel">
+  <div class="card" style="border:2px solid var(--green-accent);">
+    <div class="card-title">⚙️ إعداد خدمة الإيميل (EmailJS)</div>
+    <p class="section-note">
+      سجّل مجاناً على <strong>emailjs.com</strong> ← أنشئ Service + Template ← انسخ البيانات هنا
+    </p>
+    <label>Service ID</label>
+    <input type="text" id="set-ejs-service" placeholder="service_xxxxxxx">
+    <label>Template ID</label>
+    <input type="text" id="set-ejs-template" placeholder="template_xxxxxxx">
+    <label>Public Key</label>
+    <input type="text" id="set-ejs-key" placeholder="XXXXXXXXXXXXXXXXX">
+    <button class="btn-primary" onclick="saveEmailJS()">💾 حفظ إعدادات EmailJS</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🗑️ إدارة البيانات</div>
+    <button class="btn-secondary" onclick="clearAll()" style="width:100%;padding:12px;color:var(--red-danger);">حذف جميع الملاحظات المحلية</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let observations = JSON.parse(localStorage.getItem('obs_data') || '[]');
+let selectedSeverity = '';
+let capturedPhotos = [];
+let currentCoords = null;
+
+const EJS_SERVICE  = 'service_dsj6psr';
+const EJS_TEMPLATE = 'template_y3kcw1p';
+const EJS_KEY      = 'uOUxb1sLJk-oKk4j_';
+emailjs.init(EJS_KEY);
+
+// TIME
+function updateTime() {
+  document.getElementById('liveTime').textContent =
+    new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+}
+updateTime(); setInterval(updateTime,1000);
+
+// TABS
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('btn-'+name).classList.add('active');
+  if(name==='list') renderList();
+  if(name==='stats') renderStats();
+  if(name==='settings') loadEJSSettings();
+}
+
+// SEVERITY
+function selectSeverity(sev,el) {
+  selectedSeverity = sev;
+  document.querySelectorAll('.sev-btn').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// PHOTOS
+function handlePhotos(e) {
+  Array.from(e.target.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 800; let w=img.width, h=img.height;
+        if(w>MAX){h=h*(MAX/w);w=MAX;} if(h>MAX){w=w*(MAX/h);h=MAX;}
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const compressed = canvas.toDataURL('image/jpeg',0.7);
+        capturedPhotos.push(compressed);
+        addPhotoPreview(compressed, capturedPhotos.length-1);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function addPhotoPreview(src,idx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'photo-wrap';
+  wrap.dataset.idx = idx;
+  wrap.innerHTML = `<img src="${src}"><button class="del-photo" onclick="removePhoto(this.parentNode)">✕</button>`;
+  document.getElementById('photoPreview').appendChild(wrap);
+}
+
+function removePhoto(el) {
+  const idx = parseInt(el.dataset.idx);
+  capturedPhotos.splice(idx,1);
+  el.remove();
+  // re-index
+  document.querySelectorAll('#photoPreview .photo-wrap').forEach((w,i)=>w.dataset.idx=i);
+}
+
+// LOCATION
+function getLocation() {
+  const btn = document.getElementById('locBtn');
+  btn.textContent='⏳'; btn.disabled=true;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    currentCoords={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    document.getElementById('coordDisplay').textContent=`${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`;
+    document.getElementById('addressDisplay').textContent='✅ تم تحديد الموقع بنجاح';
+    document.getElementById('mapPlaceholder').style.background='linear-gradient(135deg,#b7e4c7,#74c69d)';
+    document.getElementById('mapLabel').textContent='📍 تم تحديد الموقع';
+    btn.textContent='🔄 تحديث'; btn.disabled=false;
+    showToast('✅ تم تحديد الموقع');
+  },()=>{
+    currentCoords={lat:24.7136+Math.random()*0.01,lng:46.6753+Math.random()*0.01};
+    document.getElementById('coordDisplay').textContent=`${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`;
+    document.getElementById('addressDisplay').textContent='📍 تجريبي';
+    document.getElementById('mapPlaceholder').style.background='linear-gradient(135deg,#b7e4c7,#74c69d)';
+    btn.textContent='🔄 تحديث'; btn.disabled=false;
+  });
+}
+
+// SAVE EMAIL ON TYPE
+function saveEmail(key, val) {
+  localStorage.setItem('email_'+key, val.trim());
+}
+
+// SUBMIT
+async function submitObservation() {
+  const siteName = document.getElementById('siteName').value.trim();
+  const obsNote  = document.getElementById('obsNote').value.trim();
+  const refNum   = document.getElementById('refNum').value.trim();
+  if(!siteName){showToast('⚠️ يرجى إدخال اسم الموقع');return;}
+  if(!obsNote){showToast('⚠️ يرجى كتابة الملاحظة');return;}
+  if(!selectedSeverity){showToast('⚠️ يرجى تحديد درجة الخطورة');return;}
+
+  const sevLabels={low:'منخفضة',med:'متوسطة',high:'عالية',danger:'خطر فوري 🔴'};
+  const now=new Date();
+  const obs={
+    id: refNum || ('OBS-'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')+'-'+String(observations.length+1).padStart(4,'0')),
+    timestamp:now.toISOString(), displayTime:now.toLocaleString('ar-SA'),
+    siteName, visitType:document.getElementById('visitType').value||'غير محدد',
+    coords:currentCoords, locationDesc:document.getElementById('locationDesc').value,
+    obsType:document.getElementById('obsType').value||'غير محدد',
+    obsNote, corrective:document.getElementById('corrective').value,
+    severity:selectedSeverity, severityLabel:sevLabels[selectedSeverity],
+    photos:capturedPhotos.slice(), sent:false,
+  };
+
+  // Overlay start
+  const overlay=document.getElementById('sendingOverlay');
+  overlay.classList.add('active');
+  document.getElementById('sendingMsg').textContent='جارٍ إرسال الملاحظة...';
+  document.getElementById('spinnerEl').style.display='block';
+  document.getElementById('checkEl').style.display='none';
+
+  // Collect recipients
+  const emails={
+    mgr: document.getElementById('email-mgr').value.trim(),
+    sup: document.getElementById('email-sup').value.trim(),
+    mon: document.getElementById('email-mon').value.trim(),
+    safe: document.getElementById('email-safe').value.trim(),
+  };
+  const recipients = Object.values(emails).filter(e=>e);
+
+  let emailSent=false;
+  if(recipients.length>0){
+    try {
+      const mapsLink=currentCoords?`https://maps.google.com/?q=${currentCoords.lat},${currentCoords.lng}`:'غير محدد';
+      for(const email of recipients){
+        await emailjs.send(EJS_SERVICE,EJS_TEMPLATE,{
+          to_email:email, ref_num:obs.id, site_name:obs.siteName,
+          visit_type:obs.visitType, obs_type:obs.obsType, obs_note:obs.obsNote,
+          severity:obs.severityLabel, corrective:obs.corrective||'لم يحدد',
+          location_desc:obs.locationDesc||'غير محدد',
+          coords:currentCoords?`${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`:'غير محدد',
+          maps_link:mapsLink, date_time:obs.displayTime,
+          photo_count:String(obs.photos.length),
+        });
+      }
+      emailSent=true; obs.sent=true;
+    } catch(err){ console.error('EmailJS Error:', err); alert(err.text || err.message || JSON.stringify(err)); obs.sent=false; }
+  }
+
+  document.getElementById('sendingMsg').textContent=emailSent
+    ?`✅ تم الإرسال لـ ${recipients.length} مستلم`
+    :'💾 تم الحفظ محلياً';
+  document.getElementById('spinnerEl').style.display='none';
+  document.getElementById('checkEl').style.display='block';
+  await delay(1500);
+  overlay.classList.remove('active');
+
+  observations.unshift(obs);
+  localStorage.setItem('obs_data',JSON.stringify(observations));
+  resetForm();
+  showToast(emailSent?`📧 تم الإرسال – ${obs.id}`:`💾 تم الحفظ – ${obs.id}`);
+}
+
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+function resetForm(){
+  ['siteName','obsNote','corrective','locationDesc','refNum'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('visitType').selectedIndex=0;
+  document.getElementById('obsType').selectedIndex=0;
+  document.getElementById('photoPreview').innerHTML='';
+  capturedPhotos=[]; selectedSeverity=''; currentCoords=null;
+  document.querySelectorAll('.sev-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('coordDisplay').textContent='لم يتم التحديد بعد';
+  document.getElementById('addressDisplay').textContent='اضغط الزر لاستخدام GPS';
+  document.getElementById('mapPlaceholder').style.background='linear-gradient(135deg,#d4edda,#b7d5c0)';
+  document.getElementById('mapLabel').textContent='اضغط لتحديد الموقع';
+}
+
+// LIST
+function renderList(){
+  const filter=document.getElementById('filterSev').value;
+  const list=document.getElementById('obsList');
+  const filtered=filter?observations.filter(o=>o.severity===filter):observations;
+  if(!filtered.length){
+    list.innerHTML=`<div class="empty-state"><div class="e-icon">📋</div><p>لا توجد ملاحظات${filter?' بهذا التصنيف':''} بعد</p></div>`;
+    return;
+  }
+  list.innerHTML=filtered.map(obs=>`
+    <div class="obs-card ${obs.severity}-sev">
+      <div class="obs-header">
+        <span class="obs-id">${obs.id}</span>
+        <span class="sev-badge ${obs.severity}">${obs.severityLabel}</span>
+      </div>
+      <div style="font-weight:800;font-size:0.9rem;margin-bottom:4px;">${obs.siteName}</div>
+      <div style="font-size:0.75rem;color:var(--gray-mid);margin-bottom:6px;">${obs.visitType} · ${obs.obsType}</div>
+      <div class="obs-note">${obs.obsNote}</div>
+      ${obs.corrective?`<div style="font-size:0.77rem;color:var(--green-dark);background:#eef6f1;border-radius:7px;padding:5px 9px;margin-bottom:6px;">🔧 ${obs.corrective}</div>`:''}
+      ${obs.photos&&obs.photos.length?`<div class="obs-imgs">${obs.photos.map(p=>`<img src="${p}">`).join('')}</div>`:''}
+      <div class="obs-meta" style="margin-top:8px;">
+        <span>🕐 ${obs.displayTime}</span>
+        ${obs.coords?`<span>📍 ${obs.coords.lat.toFixed(4)}, ${obs.coords.lng.toFixed(4)}</span>`:''}
+      </div>
+      <span class="obs-status ${obs.sent?'sent':'pending'}">${obs.sent?'✅ تم الإرسال':'💾 محفوظ محلياً'}</span>
+    </div>
+  `).join('');
+}
+
+// STATS
+function renderStats(){
+  const today=new Date().toDateString();
+  document.getElementById('st-total').textContent=observations.length;
+  document.getElementById('st-today').textContent=observations.filter(o=>new Date(o.timestamp).toDateString()===today).length;
+  document.getElementById('st-danger').textContent=observations.filter(o=>o.severity==='danger').length;
+  document.getElementById('st-sent').textContent=observations.filter(o=>o.sent).length;
+  const sc={low:0,med:0,high:0,danger:0};
+  const sn={low:'منخفضة',med:'متوسطة',high:'عالية',danger:'خطر فوري'};
+  const sv={low:'#457b9d',med:'#f4a261',high:'#e36414',danger:'#c1121f'};
+  observations.forEach(o=>{if(sc[o.severity]!==undefined)sc[o.severity]++;});
+  const mx=Math.max(...Object.values(sc),1);
+  document.getElementById('sevBars').innerHTML=Object.entries(sc).map(([k,v])=>`
+    <div class="sev-bar-row">
+      <div class="sev-bar-label" style="color:${sv[k]}">${sn[k]}</div>
+      <div class="sev-bar-track"><div class="sev-bar-fill" style="width:${v/mx*100}%;background:${sv[k]}"></div></div>
+      <div class="sev-bar-count" style="color:${sv[k]}">${v}</div>
+    </div>`).join('');
+  const sites={};
+  observations.forEach(o=>{sites[o.siteName]=(sites[o.siteName]||0)+1;});
+  const sorted=Object.entries(sites).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById('topSites').innerHTML=sorted.length
+    ?sorted.map(([s,c])=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--gray-soft);font-size:0.86rem;"><span>🏢 ${s}</span><span style="font-weight:800;color:var(--green-dark)">${c}</span></div>`).join('')
+    :'<div style="color:var(--gray-mid);font-size:0.84rem;padding:10px 0">لا توجد بيانات بعد</div>';
+}
+
+// SETTINGS
+function loadEJSSettings(){
+  ['ejs-service','ejs-template','ejs-key'].forEach(k=>{
+    const v=localStorage.getItem(k.replace('-','_'));
+    if(v) document.getElementById('set-'+k).value=v;
+  });
+}
+
+function saveEmailJS(){
+  localStorage.setItem('ejs_service', document.getElementById('set-ejs-service').value.trim());
+  localStorage.setItem('ejs_template',document.getElementById('set-ejs-template').value.trim());
+  localStorage.setItem('ejs_key',     document.getElementById('set-ejs-key').value.trim());
+  emailjs.init(localStorage.getItem('ejs_key'));
+  showToast('✅ تم حفظ إعدادات EmailJS');
+}
+
+function clearAll(){
+  if(confirm('هل أنت متأكد؟ سيتم حذف جميع الملاحظات المحلية.')){
+    observations=[];
+    localStorage.removeItem('obs_data');
+    showToast('🗑️ تم الحذف');
+  }
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+// Load saved emails on start
+window.onload=()=>{
+  ['mgr','sup','mon','safe'].forEach(k=>{
+    const v=localStorage.getItem('email_'+k);
+    if(v) document.getElementById('email-'+k).value=v;
+  });
+};
+</script>
+</body>
+</html>
